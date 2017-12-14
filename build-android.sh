@@ -37,6 +37,10 @@ boost_version()
     BOOST_VER1=1
     BOOST_VER2=65
     BOOST_VER3=1
+  elif [ "$1" = "1.61.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=61
+    BOOST_VER3=0
   elif [ "$1" = "1.55.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=55
@@ -182,7 +186,7 @@ if [ -z "$AndroidNDKRoot" ] ; then
 else
   # User passed the NDK root as a parameter. Make sure the directory
   # exists and make it an absolute path.
-  if [ ! -f "$AndroidNDKRoot/ndk-build" ]; then
+  if [ ! -f "$AndroidNDKRoot/ndk-build.cmd" ]; then
     dump "ERROR: $AndroidNDKRoot is not a valid NDK root"
     exit 1
   fi
@@ -282,7 +286,7 @@ case "$NDK_RN" in
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/arm-linux-androideabi-g++
 		TOOLSET=gcc-androidR8e
 		;;
-	"16.0")
+	"16.0"|"16.1")
 		TOOLCHAIN=${TOOLCHAIN:-llvm}
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/clang++
 		TOOLSET=clang
@@ -307,7 +311,7 @@ if [ "${ARCHLIST}" '!=' "armeabi" ] && [ "${TOOLSET}" '!=' "clang" ]; then
     echo "Old NDK versions only support ARM architecture"
     exit 1
 fi
-
+CXXFLAGS="-stdlib=libc++"
 echo Building with TOOLSET=$TOOLSET CXXPATH=$CXXPATH CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS | tee $PROGDIR/build.log
 
 # Check if the ndk is valid or not
@@ -484,16 +488,17 @@ echo "Building boost for android for $ARCH"
       TARGET_OS=linux
   fi
 
-  { ./bjam -q                         \
+  { ./bjam                            \
          -j$NCPU                      \
          target-os=${TARGET_OS}       \
          toolset=${TOOLSET_ARCH}      \
          $cflags                      \
          $cxxflags                    \
+         linkflags="-stdlib=libc++"   \
+         --layout=system              \
          link=static                  \
          threading=multi              \
-         --layout=versioned           \
-         --without-python             \
+         threadapi=pthread            \
          -sICONV_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
          -sICU_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
          --build-dir="./../$BUILD_DIR/build/$ARCH" \
@@ -501,7 +506,7 @@ echo "Building boost for android for $ARCH"
          $LIBRARIES                   \
          $LIBRARIES_BROKEN            \
          install 2>&1                 \
-         || { dump "ERROR: Failed to build boost for android for $ARCH!" ; rm -rf ./../$BUILD_DIR/out/$ARCH ; exit 1 ; }
+         || { dump "ERROR: Failed to build boost for android for $ARCH!" ; exit 1 ; }
   } | tee -a $PROGDIR/build.log
 
   # PIPESTATUS variable is defined only in Bash, and we are using /bin/sh, which is not Bash on newer Debian/Ubuntu

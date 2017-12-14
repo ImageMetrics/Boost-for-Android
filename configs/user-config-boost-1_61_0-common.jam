@@ -18,7 +18,6 @@ $(AndroidBinariesPath)/clang++
 <compileflags>-I$(AndroidNDKRoot)/sources/cxx-stl/llvm-libc++abi/include
 <compileflags>-I$(AndroidNDKRoot)/sources/android/support/include
 <compileflags>-DANDROID
-<compileflags>-Wa,--noexecstack
 <compileflags>-Wformat
 <compileflags>-Werror=format-security
 <compileflags>-DNDEBUG
