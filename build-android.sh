@@ -311,7 +311,7 @@ if [ "${ARCHLIST}" '!=' "armeabi" ] && [ "${TOOLSET}" '!=' "clang" ]; then
     echo "Old NDK versions only support ARM architecture"
     exit 1
 fi
-CXXFLAGS="-stdlib=libc++"
+
 echo Building with TOOLSET=$TOOLSET CXXPATH=$CXXPATH CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS | tee $PROGDIR/build.log
 
 # Check if the ndk is valid or not
@@ -494,7 +494,6 @@ echo "Building boost for android for $ARCH"
          toolset=${TOOLSET_ARCH}      \
          $cflags                      \
          $cxxflags                    \
-         linkflags="-stdlib=libc++"   \
          --layout=system              \
          link=static                  \
          threading=multi              \
