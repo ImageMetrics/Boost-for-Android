@@ -29,7 +29,7 @@ diff -u -r boost_1_61_0.orig/boost/system/error_code.hpp boost_1_61_0/boost/syst
 diff -u -r boost_1_61_0.orig/libs/filesystem/src/operations.cpp boost_1_61_0/libs/filesystem/src/operations.cpp
 --- boost_1_61_0.orig/libs/filesystem/src/operations.cpp	2017-09-02 12:56:12.000000000 +0300
 +++ boost_1_61_0/libs/filesystem/src/operations.cpp	2017-11-14 18:04:46.099720456 +0200
-@@ -206,6 +206,21 @@
+@@ -207,6 +207,21 @@
  
  # if defined(BOOST_POSIX_API)
  

@@ -22,6 +22,7 @@ $(AndroidBinariesPath)/clang++
 <compileflags>-Werror=format-security
 <compileflags>-DNDEBUG
 <compileflags>-Oz
+<compileflags>-flto
 <compileflags>-fvisibility=hidden
 <compileflags>-fvisibility-inlines-hidden
 <compileflags>-fdata-sections

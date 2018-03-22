@@ -1,14 +1,14 @@
 <compileflags>-gcc-toolchain
-<compileflags>$(AndroidNDKRoot)/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64
+<compileflags>$(AndroidNDKRoot)/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64
 <compileflags>-target
 <compileflags>armv7-none-linux-androideabi
 <compileflags>-march=armv7-a
 <compileflags>-mfloat-abi=softfp
 <compileflags>-mfpu=neon
 <compileflags>-mthumb
-<compileflags>-fpic
+<compileflags>-fPIC
 <compileflags>--sysroot
 <compileflags>$(AndroidNDKRoot)/sysroot
 <compileflags>-isystem
 <compileflags>$(AndroidNDKRoot)/sysroot/usr/include/arm-linux-androideabi
-<compileflags>-D__ANDROID_API__=15
+<compileflags>-D__ANDROID_API__=18
