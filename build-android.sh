@@ -28,12 +28,28 @@
 # -----------------------
 
 BOOST_VER1=1
-BOOST_VER2=65
-BOOST_VER3=1
-register_option "--boost=<version>" boost_version "Boost version to be used, one of {1.65.1, 1.55.0, 1.54.0, 1.53.0, 1.49.0, 1.48.0, 1.45.0}, default is 1.53.0."
+BOOST_VER2=69
+BOOST_VER3=0
+register_option "--boost=<version>" boost_version "Boost version to be used, one of {1.69.0, 1.68.0, 1.67.0, 1.66.0, 1.65.1, 1.55.0, 1.54.0, 1.53.0, 1.49.0, 1.48.0, 1.45.0}, default is 1.69.0."
 boost_version()
 {
-  if [ "$1" = "1.65.1" ]; then
+  if [ "$1" = "1.69.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=69
+    BOOST_VER3=0    
+  elif [ "$1" = "1.68.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=68
+    BOOST_VER3=0    
+  elif [ "$1" = "1.67.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=67
+    BOOST_VER3=0    
+  elif [ "$1" = "1.66.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=66
+    BOOST_VER3=0
+  elif [ "$1" = "1.65.1" ]; then
     BOOST_VER1=1
     BOOST_VER2=65
     BOOST_VER3=1
@@ -286,7 +302,7 @@ case "$NDK_RN" in
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/arm-linux-androideabi-g++
 		TOOLSET=gcc-androidR8e
 		;;
-	"16.0"|"16.1")
+	"16.0"|"16.1"|"17.1"|"17.2"|"18.0"|"18.1")
 		TOOLCHAIN=${TOOLCHAIN:-llvm}
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/clang++
 		TOOLSET=clang
@@ -301,9 +317,17 @@ if [ -n "${AndroidSourcesDetected}" -a "${TOOLSET}" '!=' "clang" ]; then # Overw
 fi
 
 if [ -z "${ARCHLIST}" ]; then
-  ARCHLIST=armeabi
+  ARCHLIST=armeabi-v7a
   if [ "$TOOLSET" = "clang" ]; then
-    ARCHLIST="arm64-v8a armeabi armeabi-v7a mips mips64 x86 x86_64"
+
+    case "$NDK_RN" in
+      # NDK 17+: Support for ARMv5 (armeabi), MIPS, and MIPS64 has been removed.
+      "17.1"|"17.2"|"18.0"|"18.1")
+        ARCHLIST="arm64-v8a armeabi-v7a x86 x86_64"
+        ;;
+      *)
+        ARCHLIST="arm64-v8a armeabi armeabi-v7a mips mips64 x86 x86_64"
+    esac    
   fi
 fi
 
@@ -468,6 +492,7 @@ echo "Building boost for android for $ARCH"
   export PATH=$AndroidBinariesPath:$PATH
   export AndroidNDKRoot
   export NO_BZIP2=1
+  export PlatformOS
 
   cflags=""
   for flag in $CFLAGS; do cflags="$cflags cflags=$flag"; done
@@ -480,15 +505,27 @@ echo "Building boost for android for $ARCH"
       TOOLSET_ARCH=${TOOLSET}-${JAMARCH}
       TARGET_OS=android
       if [ "$ARCH" = "armeabi" ]; then
-          echo "Disabling boost_math library on armeabi architecture, because of broken toolchain" | tee -a $PROGDIR/build.log
-          LIBRARIES_BROKEN="--without-math"
+          if [ -z "$LIBRARIES" ]; then
+              echo "Disabling boost_math library on armeabi architecture, because of broken toolchain" | tee -a $PROGDIR/build.log
+              LIBRARIES_BROKEN="--without-math"
+          elif echo $LIBRARIES | grep math; then
+            dump "ERROR: Cannot build boost_math library for armeabi architecture because of broken toolchain"
+            dump "       However, it is explicitly included"
+            exit 1
+          fi
       fi
   else
       TOOLSET_ARCH=${TOOLSET}
       TARGET_OS=linux
   fi
 
+  WITHOUT_LIBRARIES=--without-python
+  if [ -n "$LIBRARIES" ]; then
+      unset WITHOUT_LIBRARIES
+  fi
+
   { ./bjam                            \
+         --ignore-site-config         \
          -j$NCPU                      \
          target-os=${TARGET_OS}       \
          toolset=${TOOLSET_ARCH}      \
@@ -497,6 +534,8 @@ echo "Building boost for android for $ARCH"
          --layout=system              \
          link=static                  \
          threading=multi              \
+         --layout=versioned           \
+         $WITHOUT_LIBRARIES           \
          threadapi=pthread            \
          -sICONV_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
          -sICU_PATH=`pwd`/../libiconv-libicu-android/$ARCH \

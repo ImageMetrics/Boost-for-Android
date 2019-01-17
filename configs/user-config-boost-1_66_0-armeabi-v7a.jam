@@ -1,12 +1,13 @@
 <compileflags>-gcc-toolchain
 <compileflags>$(AndroidNDKRoot)/toolchains/arm-linux-androideabi-4.9/prebuilt/${PlatformOS}-x86_64
 <compileflags>-target
-<compileflags>armv5te-none-linux-androideabi
-<compileflags>-march=armv5te
-<compileflags>-mtune=xscale
-<compileflags>-msoft-float
+<compileflags>armv7-none-linux-androideabi15
+<compileflags>-march=armv7-a
+<compileflags>-mfloat-abi=softfp
+<compileflags>-mfpu=vfpv3-d16
 <compileflags>-mthumb
 <compileflags>-fpic
+<compileflags>-fno-integrated-as
 <compileflags>--sysroot
 <compileflags>$(AndroidNDKRoot)/sysroot
 <compileflags>-isystem
