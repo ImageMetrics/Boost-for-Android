@@ -416,9 +416,9 @@ then
   PATCH_BOOST_DIR=($PROGDIR/patches/boost-${BOOST_VER})
 
   if [ $SIZE_REDUCED = no ] ; then
-    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}_im)
+    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im_size_reduced)
   else
-    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}_im)
+    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im)
   fi
 
   if [ "$TOOLSET" = "clang" ]; then
