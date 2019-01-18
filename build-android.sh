@@ -36,15 +36,15 @@ boost_version()
   if [ "$1" = "1.69.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=69
-    BOOST_VER3=0    
+    BOOST_VER3=0
   elif [ "$1" = "1.68.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=68
-    BOOST_VER3=0    
+    BOOST_VER3=0
   elif [ "$1" = "1.67.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=67
-    BOOST_VER3=0    
+    BOOST_VER3=0
   elif [ "$1" = "1.66.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=66
@@ -109,14 +109,14 @@ do_download ()
 #LIBRARIES=--with-libraries=date_time,filesystem,program_options,regex,signals,system,thread,iostreams,locale
 LIBRARIES=
 register_option "--with-libraries=<list>" do_with_libraries "Comma separated list of libraries to build."
-do_with_libraries () { 
-  for lib in $(echo $1 | tr ',' '\n') ; do LIBRARIES="--with-$lib ${LIBRARIES}"; done 
+do_with_libraries () {
+  for lib in $(echo $1 | tr ',' '\n') ; do LIBRARIES="--with-$lib ${LIBRARIES}"; done
 }
 
 register_option "--without-libraries=<list>" do_without_libraries "Comma separated list of libraries to exclude from the build."
 do_without_libraries () {	LIBRARIES="--without-libraries=$1"; }
-do_without_libraries () { 
-  for lib in $(echo $1 | tr ',' '\n') ; do LIBRARIES="--without-$lib ${LIBRARIES}"; done 
+do_without_libraries () {
+  for lib in $(echo $1 | tr ',' '\n') ; do LIBRARIES="--without-$lib ${LIBRARIES}"; done
 }
 
 register_option "--prefix=<path>" do_prefix "Prefix to be used when installing libraries and includes."
@@ -132,6 +132,11 @@ do_arch () {
   for ARCH in $(echo $1 | tr ',' '\n') ; do ARCHLIST="$ARCH ${ARCHLIST}"; done
 }
 
+SIZE_REDUCED=no
+register_option "--size_reduced"    do_size_reduced     "Build boost resulting in smaller binaries"
+do_size_reduced () {	SIZE_REDUCED=yes; }
+
+
 PROGRAM_PARAMETERS="<ndk-root>"
 PROGRAM_DESCRIPTION=\
 "       Boost For Android\n"\
@@ -145,7 +150,7 @@ echo "Building boost version: $BOOST_VER1.$BOOST_VER2.$BOOST_VER3"
 # Build constants
 # -----------------------
 
-BOOST_DOWNLOAD_LINK="http://downloads.sourceforge.net/project/boost/boost/$BOOST_VER1.$BOOST_VER2.$BOOST_VER3/boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fboost%2Ffiles%2Fboost%2F${BOOST_VER1}.${BOOST_VER2}.${BOOST_VER3}%2F&ts=1291326673&use_mirror=garr"
+BOOST_DOWNLOAD_LINK="https://newcontinuum.dl.sourceforge.net/project/boost/boost/$BOOST_VER1.$BOOST_VER2.$BOOST_VER3/boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2"
 BOOST_TAR="boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2"
 BOOST_DIR="boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}"
 BUILD_DIR="./build/"
@@ -155,10 +160,10 @@ BUILD_DIR="./build/"
 if [ $CLEAN = yes ] ; then
 	echo "Cleaning: $BUILD_DIR"
 	rm -f -r $PROGDIR/$BUILD_DIR
-	
+
 	echo "Cleaning: $BOOST_DIR"
 	rm -f -r $PROGDIR/$BOOST_DIR
-	
+
 	echo "Cleaning: $BOOST_TAR"
 	rm -f $PROGDIR/$BOOST_TAR
 
@@ -202,7 +207,7 @@ if [ -z "$AndroidNDKRoot" ] ; then
 else
   # User passed the NDK root as a parameter. Make sure the directory
   # exists and make it an absolute path.
-  if [ ! -f "$AndroidNDKRoot/ndk-build.cmd" ]; then
+  if [ ! -f "$AndroidNDKRoot/ndk-build" ]; then
     dump "ERROR: $AndroidNDKRoot is not a valid NDK root"
     exit 1
   fi
@@ -327,7 +332,7 @@ if [ -z "${ARCHLIST}" ]; then
         ;;
       *)
         ARCHLIST="arm64-v8a armeabi armeabi-v7a mips mips64 x86 x86_64"
-    esac    
+    esac
   fi
 fi
 
@@ -386,7 +391,7 @@ then
   # Make the initial bootstrap
   echo "Performing boost bootstrap"
 
-  cd $BOOST_DIR 
+  cd $BOOST_DIR
   case "$HOST_OS" in
     windows)
         cmd //c "bootstrap.bat" 2>&1 | tee -a $PROGDIR/build.log
@@ -401,14 +406,20 @@ then
   	exit 1
   fi
   cd $PROGDIR
-  
+
   # -------------------------------------------------------------
   # Patching will be done only if we had a successfull bootstrap!
   # -------------------------------------------------------------
 
   # Apply patches to boost
   BOOST_VER=${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}
-  PATCH_BOOST_DIR=$PROGDIR/patches/boost-${BOOST_VER}
+  PATCH_BOOST_DIR=($PROGDIR/patches/boost-${BOOST_VER})
+
+  if [ $SIZE_REDUCED = no ] ; then
+    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}_im)
+  else
+    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}_im)
+  fi
 
   if [ "$TOOLSET" = "clang" ]; then
       cp configs/user-config-boost-${BOOST_VER}.jam $BOOST_DIR/tools/build/src/user-config.jam || exit 1
@@ -421,12 +432,16 @@ then
           sed "s/%ARCH%/${JAMARCH}/g" configs/user-config-boost-${BOOST_VER}-common.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
           cat configs/user-config-boost-${BOOST_VER}-$ARCH.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
           echo ';' >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+
+          # IM: We want -fPIC, not -fpic
+          sed -i "" "s/-fpic/-fPIC/g" $BOOST_DIR/tools/build/src/user-config.jam
       done
   else
       cp configs/user-config-boost-${BOOST_VER}.jam $BOOST_DIR/tools/build/v2/user-config.jam || exit 1
   fi
 
-  for dir in $PATCH_BOOST_DIR; do
+  for dir in ${PATCH_BOOST_DIR[@]}; do
+    echo "Looking for directory '$dir'"
     if [ ! -d "$dir" ]; then
       echo "Could not find directory '$dir' while looking for patches"
       exit 1
@@ -445,7 +460,7 @@ then
       PATCHDIR=`dirname $PATCH`
       PATCHNAME=`basename $PATCH`
       log "Applying $PATCHNAME into $SRC_DIR/$PATCHDIR"
-      cd $SRC_DIR && patch -p1 < $dir/$PATCH && cd $PROGDIR
+      cd $SRC_DIR && patch -l -u -p1 < $dir/$PATCH && cd $PROGDIR
       if [ $? != 0 ] ; then
         dump "ERROR: Patch failure !! Please check your patches directory!"
         dump "       Try to perform a clean build using --clean ."

@@ -1,0 +1,79 @@
+diff -ur --strip-trailing-cr boost_1_69_0.orig/tools/build/src/tools/clang-darwin.jam boost_1_69_0/tools/build/src/tools/clang-darwin.jam
+--- boost_1_69_0.orig/tools/build/src/tools/clang-darwin.jam	2018-12-05 19:58:26.000000000 +1300
++++ boost_1_69_0/tools/build/src/tools/clang-darwin.jam	2019-01-18 13:47:49.000000000 +1300
+@@ -16,9 +16,9 @@
+
+ feature.extend-subfeature toolset clang : platform : darwin ;
+
+-toolset.inherit-generators clang-darwin
+-  <toolset>clang <toolset-clang:platform>darwin
+-  : gcc
++toolset.inherit-generators clang-darwin
++  <toolset>clang <toolset-clang:platform>darwin
++  : gcc
+   # Don't inherit PCH generators. They were not tested, and probably
+   # don't work for this compiler.
+   : gcc.mingw.link gcc.mingw.link.dll gcc.compile.c.pch gcc.compile.c++.pch
+@@ -32,30 +32,30 @@
+ generators.register-c-compiler clang-darwin.compile.mm : OBJECTIVE_CPP : OBJ : <toolset>clang <toolset-clang:platform>darwin ;
+
+ toolset.inherit-rules clang-darwin : gcc ;
+-toolset.inherit-flags clang-darwin : gcc
++toolset.inherit-flags clang-darwin : gcc
+         : <inlining>full
+           <architecture>x86/<address-model>32
+           <architecture>x86/<address-model>64
+         ;
+-
++
+ if [ MATCH (--debug-configuration) : [ modules.peek : ARGV ] ]
+ {
+     .debug-configuration = true ;
+ }
+-
++
+ # Initializes the clang-darwin toolset
+ #   version in optional
+ #   name (default clang++) is used to invoke the specified clang compiler
+ #   compile and link options allow you to specify addition command line options for each version
+ rule init ( version ? :  command * : options * )
+ {
+-    command = [ common.get-invocation-command clang-darwin : clang++
++    command = [ common.get-invocation-command clang-darwin : clang++
+         : $(command) : /usr/bin /usr/local/bin ] ;
+
+     # Determine the version
+     local command-string = $(command:J=" ") ;
+     if $(command)
+-    {
++    {
+         version ?= [ MATCH "version ([0-9]+[.][0-9]+)"
+             : [ SHELL "$(command-string) --version" ] ] ;
+     }
+@@ -115,7 +115,8 @@
+ # logic to set the .AR variable. We can put the same
+ # logic in clang-linux, but that's hardly worth the trouble
+ # as on Linux, 'ar' is always available.
+-.AR = ar ;
++# .AR = ar ;
++.AR = llvm-ar ;
+ .RANLIB = ranlib -cs ;
+
+ rule archive ( targets * : sources * : properties * )
+@@ -123,11 +124,11 @@
+   # Always remove archive and start again. Here's rationale from
+   # Andre Hentz:
+   #
+-  # I had a file, say a1.c, that was included into liba.a.
+-  # I moved a1.c to a2.c, updated my Jamfiles and rebuilt.
+-  # My program was crashing with absurd errors.
+-  # After some debugging I traced it back to the fact that a1.o was *still*
+-  # in liba.a
++  # I had a file, say a1.c, that was included into liba.a.
++  # I moved a1.c to a2.c, updated my Jamfiles and rebuilt.
++  # My program was crashing with absurd errors.
++  # After some debugging I traced it back to the fact that a1.o was *still*
++  # in liba.a
+   #
+   # Rene Rivera:
+   #
