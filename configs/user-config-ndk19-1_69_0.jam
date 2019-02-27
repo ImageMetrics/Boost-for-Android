@@ -42,6 +42,6 @@ local AndroidNDKRoot = [ os.environ AndroidNDKRoot ] ;
 local AndroidBinariesPath = [ os.environ AndroidBinariesPath ] ;
 
 local AndroidCompiler_arm64v8a = $(AndroidBinariesPath)/aarch64-linux-android21-clang++ ;
-local AndroidCompiler_armeabiv7a = $(AndroidBinariesPath)/armv7a-linux-androideabi16-clang++ ;
-local AndroidCompiler_x86 = $(AndroidBinariesPath)/i686-linux-android16-clang++ ;
+local AndroidCompiler_armeabiv7a = $(AndroidBinariesPath)/armv7a-linux-androideabi18-clang++ ;
+local AndroidCompiler_x86 = $(AndroidBinariesPath)/i686-linux-android18-clang++ ;
 local AndroidCompiler_x8664 = $(AndroidBinariesPath)/x86_64-linux-android21-clang++ ;
