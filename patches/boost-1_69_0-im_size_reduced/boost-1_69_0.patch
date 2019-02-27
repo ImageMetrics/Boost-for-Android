@@ -1,6 +1,6 @@
 diff -ur --strip-trailing-cr boost_1_69_0.orig/tools/build/src/tools/clang-darwin.jam boost_1_69_0/tools/build/src/tools/clang-darwin.jam
 --- boost_1_69_0.orig/tools/build/src/tools/clang-darwin.jam	2018-12-05 19:58:26.000000000 +1300
-+++ boost_1_69_0/tools/build/src/tools/clang-darwin.jam	2019-01-18 13:50:53.000000000 +1300
++++ boost_1_69_0/tools/build/src/tools/clang-darwin.jam	2019-01-18 13:47:49.000000000 +1300
 @@ -16,9 +16,9 @@
 
  feature.extend-subfeature toolset clang : platform : darwin ;
@@ -50,18 +50,17 @@ diff -ur --strip-trailing-cr boost_1_69_0.orig/tools/build/src/tools/clang-darwi
          version ?= [ MATCH "version ([0-9]+[.][0-9]+)"
              : [ SHELL "$(command-string) --version" ] ] ;
      }
-@@ -115,19 +115,20 @@
+@@ -115,7 +115,8 @@
  # logic to set the .AR variable. We can put the same
  # logic in clang-linux, but that's hardly worth the trouble
  # as on Linux, 'ar' is always available.
 -.AR = ar ;
--.RANLIB = ranlib -cs ;
 +# .AR = ar ;
 +.AR = llvm-ar ;
-+# .RANLIB = ranlib -cs ;
+ .RANLIB = ranlib -cs ;
 
  rule archive ( targets * : sources * : properties * )
- {
+@@ -123,11 +124,11 @@
    # Always remove archive and start again. Here's rationale from
    # Andre Hentz:
    #

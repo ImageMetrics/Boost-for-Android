@@ -429,9 +429,7 @@ then
   BOOST_VER=${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}
   PATCH_BOOST_DIR=($PROGDIR/patches/boost-${BOOST_VER})
 
-  if [ $SIZE_REDUCED = no ] ; then
-    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im)
-  else
+  if [ $SIZE_REDUCED = yes ] ; then
     PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im_size_reduced)
   fi
 
