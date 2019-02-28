@@ -19,3 +19,5 @@ $(AndroidCompiler_%ARCH%)
 <compileflags>-DNDEBUG
 <compileflags>-g
 <compileflags>-Oz
+<compileflags>-std=c++14
+<compileflags>-stdlib=libc++
