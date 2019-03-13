@@ -343,9 +343,11 @@ if [ -z "${ARCHLIST}" ]; then
       # NDK 17+: Support for ARMv5 (armeabi), MIPS, and MIPS64 has been removed.
       "17.1"|"17.2"|"18.0"|"18.1"|"19.0"|"19.1")
         ARCHLIST="arm64-v8a armeabi-v7a x86 x86_64"
+        BINUTIL=("aarch64-*" "arm-*" "x86-*" "x86_64-*")
         ;;
       *)
         ARCHLIST="arm64-v8a armeabi armeabi-v7a mips mips64 x86 x86_64"
+        BINUTIL=("aarch64-*" "arm-*" "arm-*" "mipsel-*" "mips64el-*" "x86-*" "x86_64-*")
     esac
   fi
 fi
@@ -495,6 +497,12 @@ if [ -z "$NCPU" ]; then
 fi
 
 for ARCH in $ARCHLIST; do
+
+if [ -n "$BINUTIL" ]; then
+  OLDPATH=${OLDPATH:-$PATH} # Save path
+  export PATH=`echo $AndroidNDKRoot/toolchains/${BINUTIL[0]}/*/*/*/bin`:$OLDPATH
+  BINUTIL=(${BINUTIL[@]/${BINUTIL[0]}}) # Remove first item
+fi
 
 echo "Building boost for android for $ARCH"
 (
