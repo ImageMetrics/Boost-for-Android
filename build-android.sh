@@ -213,7 +213,7 @@ if [ -z "$AndroidNDKRoot" ] ; then
 else
   # User passed the NDK root as a parameter. Make sure the directory
   # exists and make it an absolute path.
-  if [ ! -f "$AndroidNDKRoot/ndk-build" ]; then
+  if [ ! -f "$AndroidNDKRoot/ndk-build" ] && [ ! -f "$AndroidNDKRoot/ndk-build.cmd" ]; then
     dump "ERROR: $AndroidNDKRoot is not a valid NDK root"
     exit 1
   fi
@@ -343,11 +343,9 @@ if [ -z "${ARCHLIST}" ]; then
       # NDK 17+: Support for ARMv5 (armeabi), MIPS, and MIPS64 has been removed.
       "17.1"|"17.2"|"18.0"|"18.1"|"19.0"|"19.1")
         ARCHLIST="arm64-v8a armeabi-v7a x86 x86_64"
-        BINUTIL=("aarch64-*" "arm-*" "x86-*" "x86_64-*")
         ;;
       *)
         ARCHLIST="arm64-v8a armeabi armeabi-v7a mips mips64 x86 x86_64"
-        BINUTIL=("aarch64-*" "arm-*" "arm-*" "mipsel-*" "mips64el-*" "x86-*" "x86_64-*")
     esac
   fi
 fi
@@ -448,10 +446,15 @@ then
           echo ';' >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
 
           # IM: We want -fPIC, not -fpic
-          sed -i "" "s/-fpic/-fPIC/g" $BOOST_DIR/tools/build/src/user-config.jam
+          sed -i".original" "s/-fpic/-fPIC/g" $BOOST_DIR/tools/build/src/user-config.jam
       done
   else
       cp configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/v2/user-config.jam || exit 1
+  fi
+
+  if [ "$PlatformOS" = "windows" ]; then
+    sed -i".original" 's@= $(AndroidBinariesPath)@= bash '"`dirname $CXXPATH`"'@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+    sed -i".original" 's@$(AndroidBinariesPath)/llvm-ar@llvm-ar\n<ranlib>echo@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
   fi
 
   for dir in ${PATCH_BOOST_DIR[@]}; do
@@ -498,14 +501,33 @@ fi
 
 for ARCH in $ARCHLIST; do
 
-if [ -n "$BINUTIL" ]; then
-  OLDPATH=${OLDPATH:-$PATH} # Save path
-  export PATH=`echo $AndroidNDKRoot/toolchains/${BINUTIL[0]}/*/*/*/bin`:$OLDPATH
-  BINUTIL=(${BINUTIL[@]/${BINUTIL[0]}}) # Remove first item
-fi
-
 echo "Building boost for android for $ARCH"
 (
+  case "$ARCH" in
+    arm64-v8a)
+      BINUTIL="aarch64-*"
+      ;;
+    armeab*)
+      BINUTIL="arm-*"
+      ;;
+    mips)
+      BINUTIL="mipsel-*"
+      ;;
+    mips64)
+      BINUTIL="mips64el-*"
+      ;;
+    x86)
+      BINUTIL="x86-*"
+      ;;
+    x86_64)
+      BINUTIL="x86_64-*"
+      ;;
+    *)
+      echo "Undefined or not supported arch: $ARCH"
+      exit 1
+  esac
+
+  export PATH=`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/*/bin`:$PATH
 
   if [ -n "$WITH_ICONV" ] || echo $LIBRARIES | grep locale; then
     if [ -e libiconv-libicu-android ]; then
