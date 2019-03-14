@@ -56,7 +56,7 @@
 -.AR = ar ;
 -.RANLIB = ranlib -cs ;
 +#.AR = ar ;
-+.AR = ar -format-gnu ;
++.AR = llvm-ar ;
 +#.RANLIB = ranlib -cs ;
 +.RANLIB = echo ;
  

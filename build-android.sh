@@ -452,8 +452,11 @@ then
       cp configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/v2/user-config.jam || exit 1
   fi
 
-  if [ "$PlatformOS" = "windows" ]; then
+  # In win ndk19, add bash in front of full path to clang++ as they are actually bash scripts in disguise.
+  # Add full path to prevent environment variable AndroidBinariesPath being in win instead of unix format
+  if [ "$PlatformOS" = "windows" ] && [ "$CONFIG_VARIANT" = "ndk19" ]; then
     sed -i".original" 's@= $(AndroidBinariesPath)@= bash '"`dirname $CXXPATH`"'@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+    # llvm-ar is in path, so strip AndroidBinariesPath to prevent mixing win and unix format path
     sed -i".original" 's@$(AndroidBinariesPath)/llvm-ar@llvm-ar\n<ranlib>echo@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
   fi
 
@@ -503,31 +506,38 @@ for ARCH in $ARCHLIST; do
 
 echo "Building boost for android for $ARCH"
 (
-  case "$ARCH" in
-    arm64-v8a)
-      BINUTIL="aarch64-*"
-      ;;
-    armeab*)
-      BINUTIL="arm-*"
-      ;;
-    mips)
-      BINUTIL="mipsel-*"
-      ;;
-    mips64)
-      BINUTIL="mips64el-*"
-      ;;
-    x86)
-      BINUTIL="x86-*"
-      ;;
-    x86_64)
-      BINUTIL="x86_64-*"
-      ;;
-    *)
-      echo "Undefined or not supported arch: $ARCH"
-      exit 1
-  esac
-
-  export PATH=`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/*/bin`:$PATH
+  # In Darwin NDK, the path to ar actually matters... moving ar to the path where
+  # [ARCH]-linux-[ABI]-ar sits actually changed output *.a size...
+  # And llvm-ar doesn't work with lto...
+  if [ "$PlatformOS" = "darwin" ] && [ "$TOOLSET" = "clang" ] && [ $SIZE_REDUCED = yes ] ; then
+    case "$ARCH" in
+      arm64-v8a)
+        BINUTIL="aarch64-*"
+        ;;
+      armeab*)
+        BINUTIL="arm-*"
+        ;;
+      mips)
+        BINUTIL="mipsel-*"
+        ;;
+      mips64)
+        BINUTIL="mips64el-*"
+        ;;
+      x86)
+        BINUTIL="x86-*"
+        ;;
+      x86_64)
+        BINUTIL="x86_64-*"
+        ;;
+      *)
+        echo "Undefined or not supported arch: $ARCH"
+        exit 1
+    esac
+    # Find [ARCH]-linux-[ABI]-ar and replace the one in user-config.jam
+    AR_Path=(`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/bin/*-ar`)
+    # Use the first in the array when both *[ABI]-ar and *[ABI]-gcc-ar exist
+    sed -i".original" 's@<archiver>.*@<archiver>'"${AR_Path[0]}"'@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+  fi
 
   if [ -n "$WITH_ICONV" ] || echo $LIBRARIES | grep locale; then
     if [ -e libiconv-libicu-android ]; then
