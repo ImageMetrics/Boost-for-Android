@@ -138,9 +138,9 @@ do_with_iconv () {
   WITH_ICONV=1
 }
 
-SIZE_REDUCED=no
-register_option "--size_reduced"    do_size_reduced     "Build boost resulting in smaller binaries"
-do_size_reduced () {	SIZE_REDUCED=yes; }
+WITH_LTO=no
+register_option "--with-lto" do_with_lto "Build boost with lto support"
+do_with_lto () {	WITH_LTO=yes; }
 
 
 PROGRAM_PARAMETERS="<ndk-root>"
@@ -429,8 +429,8 @@ then
   BOOST_VER=${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}
   PATCH_BOOST_DIR=($PROGDIR/patches/boost-${BOOST_VER})
 
-  if [ $SIZE_REDUCED = yes ] ; then
-    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im_size_reduced)
+  if [ $WITH_LTO = yes ] ; then
+    PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im_lto)
   fi
 
   if [ "$TOOLSET" = "clang" ]; then
@@ -509,7 +509,7 @@ echo "Building boost for android for $ARCH"
   # In Darwin NDK, the path to ar actually matters... moving ar to the path where
   # [ARCH]-linux-[ABI]-ar sits actually changed output *.a size...
   # And llvm-ar doesn't work with lto...
-  if [ "$PlatformOS" = "darwin" ] && [ "$TOOLSET" = "clang" ] && [ $SIZE_REDUCED = yes ] ; then
+  if [ "$PlatformOS" = "darwin" ] && [ "$TOOLSET" = "clang" ] ; then
     case "$ARCH" in
       arm64-v8a)
         BINUTIL="aarch64-*"
@@ -533,10 +533,16 @@ echo "Building boost for android for $ARCH"
         echo "Undefined or not supported arch: $ARCH"
         exit 1
     esac
-    # Find [ARCH]-linux-[ABI]-ar and replace the one in user-config.jam
-    AR_Path=(`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/bin/*-ar`)
-    # Use the first in the array when both *[ABI]-ar and *[ABI]-gcc-ar exist
-    sed -i".original" 's@<archiver>.*@<archiver>'"${AR_Path[0]}"'@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+    if [ $WITH_LTO = yes ] ; then
+      # The [ARCH]-linux-[ABI]-ar works for lto. 
+      # Find [ARCH]-linux-[ABI]-ar and replace the one in user-config.jam
+      AR_Path=(`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/bin/*-ar`)
+      # Use the first in the array when both *[ABI]-ar and *[ABI]-gcc-ar exist
+      sed -i".original" 's@<archiver>.*@<archiver>'"${AR_Path[0]}"'@g' $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+    else
+      # The ar in bin dir works for non lto. Add path to it.
+      export PATH=`echo $AndroidNDKRoot/toolchains/$BINUTIL/*/*/*/bin`:$PATH
+    fi
   fi
 
   if [ -n "$WITH_ICONV" ] || echo $LIBRARIES | grep locale; then
