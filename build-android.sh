@@ -20,20 +20,30 @@
 # Build boost for android completly. It will download boost 1.45.0
 # prepare the build system and finally build it for android
 
+SCRIPTDIR="$(cd "$(dirname "$0")"; pwd)" # " # This extra quote fixes syntax highlighting in mcedit
+
 # Add common build methods
-. `dirname $0`/build-common.sh
+. "$SCRIPTDIR"/build-common.sh
 
 # -----------------------
 # Command line arguments
 # -----------------------
 
 BOOST_VER1=1
-BOOST_VER2=69
+BOOST_VER2=73
 BOOST_VER3=0
-register_option "--boost=<version>" boost_version "Boost version to be used, one of {1.69.0, 1.68.0, 1.67.0, 1.66.0, 1.65.1, 1.55.0, 1.54.0, 1.53.0, 1.49.0, 1.48.0, 1.45.0}, default is 1.69.0."
+register_option "--boost=<version>" boost_version "Boost version to be used, one of {1.73.0, 1.70.0, 1.69.0, 1.68.0, 1.67.0, 1.66.0, 1.65.1, 1.55.0, 1.54.0, 1.53.0, 1.49.0, 1.48.0, 1.45.0}, default is 1.73.0."
 boost_version()
 {
-  if [ "$1" = "1.69.0" ]; then
+  if [ "$1" = "1.73.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=73
+    BOOST_VER3=0
+  elif [ "$1" = "1.70.0" ]; then
+    BOOST_VER1=1
+    BOOST_VER2=70
+    BOOST_VER3=0
+  elif [ "$1" = "1.69.0" ]; then
     BOOST_VER1=1
     BOOST_VER2=69
     BOOST_VER3=0
@@ -119,6 +129,12 @@ do_without_libraries () {
   for lib in $(echo $1 | tr ',' '\n') ; do LIBRARIES="--without-$lib ${LIBRARIES}"; done
 }
 
+LAYOUT=versioned
+register_option "--layout=<layout>" do_layout "Library naming layout [versioned, tagged, system]."
+do_layout () {
+	LAYOUT=$1;
+}
+
 register_option "--prefix=<path>" do_prefix "Prefix to be used when installing libraries and includes."
 do_prefix () {
     if [ -d $1 ]; then
@@ -132,16 +148,49 @@ do_arch () {
   for ARCH in $(echo $1 | tr ',' '\n') ; do ARCHLIST="$ARCH ${ARCHLIST}"; done
 }
 
+ANDROID_TARGET_32=21
+ANDROID_TARGET_64=21
+register_option "--target-version=<version>" select_target_version \
+                "Select Android's target version" "$ANDROID_TARGET_32"
+select_target_version () {
+
+    if [ "$1" -lt 16 ]; then
+        ANDROID_TARGET_32="16"
+        ANDROID_TARGET_64="21"
+    elif [ "$1" = 20 ]; then
+        ANDROID_TARGET_32="19"
+        ANDROID_TARGET_64="21"
+    elif [ "$1" -lt 21 ]; then
+        ANDROID_TARGET_32="$1"
+        ANDROID_TARGET_64="21"
+    elif [ "$1" = 25 ]; then
+        ANDROID_TARGET_32="24"
+        ANDROID_TARGET_64="24"
+    else
+        ANDROID_TARGET_32="$1"
+        ANDROID_TARGET_64="$1"
+    fi
+}
+
 WITH_ICONV=
 register_option "--with-iconv" do_with_iconv "Build iconv and icu libaries, for boost-locale"
 do_with_iconv () {
   WITH_ICONV=1
 }
 
+WITH_PYTHON=
+register_option "--with-python=</path/to/python>" do_with_python "Build boost-python"
+do_with_python () {
+  WITH_PYTHON=$1
+  for pylib in ${WITH_PYTHON}/lib/python*; do
+    pyvers_=$(basename $pylib)
+    PYTHON_VERSION=${pyvers_#python}
+  done
+}
+
 WITH_LTO=no
 register_option "--with-lto" do_with_lto "Build boost with lto support"
 do_with_lto () {	WITH_LTO=yes; }
-
 
 PROGRAM_PARAMETERS="<ndk-root>"
 PROGRAM_DESCRIPTION=\
@@ -156,7 +205,7 @@ echo "Building boost version: $BOOST_VER1.$BOOST_VER2.$BOOST_VER3"
 # Build constants
 # -----------------------
 
-BOOST_DOWNLOAD_LINK="https://newcontinuum.dl.sourceforge.net/project/boost/boost/$BOOST_VER1.$BOOST_VER2.$BOOST_VER3/boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2"
+BOOST_DOWNLOAD_LINK="http://dl.bintray.com/boostorg/release/$BOOST_VER1.$BOOST_VER2.$BOOST_VER3/source/boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2"
 BOOST_TAR="boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}.tar.bz2"
 BOOST_DIR="boost_${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}"
 BUILD_DIR="./build/"
@@ -212,7 +261,7 @@ if [ -z "$AndroidNDKRoot" ] ; then
   echo "Using AndroidNDKRoot = $AndroidNDKRoot"
 else
   # User passed the NDK root as a parameter. Make sure the directory
-  # exists and make it an absolute path.
+  # exists and make it an absolute path. ".cmd" is for Windows support.
   if [ ! -f "$AndroidNDKRoot/ndk-build" ] && [ ! -f "$AndroidNDKRoot/ndk-build.cmd" ]; then
     dump "ERROR: $AndroidNDKRoot is not a valid NDK root"
     exit 1
@@ -320,7 +369,7 @@ case "$NDK_RN" in
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/clang++
 		TOOLSET=clang
 		;;
-	"19.0"|"19.1")
+	"19.0"|"19.1"|"19.2"|"20.0"|"20.1"|"21.0"|"21.1"|"21.2"|"21.3")
 		TOOLCHAIN=${TOOLCHAIN:-llvm}
 		CXXPATH=$AndroidNDKRoot/toolchains/${TOOLCHAIN}/prebuilt/${PlatformOS}-x86_64/bin/clang++
 		TOOLSET=clang
@@ -341,7 +390,7 @@ if [ -z "${ARCHLIST}" ]; then
 
     case "$NDK_RN" in
       # NDK 17+: Support for ARMv5 (armeabi), MIPS, and MIPS64 has been removed.
-      "17.1"|"17.2"|"18.0"|"18.1"|"19.0"|"19.1")
+      "17.1"|"17.2"|"18.0"|"18.1"|"19.0"|"19.1"|"19.2"|"20.0"|"20.1"|"21.0"|"21.1"|"21.2"|"21.3")
         ARCHLIST="arm64-v8a armeabi-v7a x86 x86_64"
         ;;
       *)
@@ -400,7 +449,7 @@ fi
 # ---------
 # Bootstrap
 # ---------
-if [ ! -f ./$BOOST_DIR/bjam ]
+if [ ! -f ./$BOOST_DIR/b2 ]
 then
   # Make the initial bootstrap
   echo "Performing boost bootstrap"
@@ -427,29 +476,35 @@ then
 
   # Apply patches to boost
   BOOST_VER=${BOOST_VER1}_${BOOST_VER2}_${BOOST_VER3}
-  PATCH_BOOST_DIR=($PROGDIR/patches/boost-${BOOST_VER})
+  PATCH_BOOST_DIR="$SCRIPTDIR/patches/boost-${BOOST_VER}"
 
   if [ $WITH_LTO = yes ] ; then
     PATCH_BOOST_DIR+=($PROGDIR/patches/boost-${BOOST_VER}-im_lto)
   fi
 
   if [ "$TOOLSET" = "clang" ]; then
-      cp configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/src/user-config.jam || exit 1
-      for FILE in configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-*.jam; do
-          ARCH="`echo $FILE | sed s%configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-%% | sed s/[.]jam//`"
+      cp "$SCRIPTDIR"/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+      for FILE in "$SCRIPTDIR"/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-*.jam; do
+          ARCH="`echo $FILE | sed s%$SCRIPTDIR/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-%% | sed s/[.]jam//`"
           if [ "$ARCH" = "common" ]; then
               continue
           fi
-          JAMARCH="`echo ${ARCH} | tr -d '_-'`" # Remove all dashes, bjam does not like them
-          sed "s/%ARCH%/${JAMARCH}/g" configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-common.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
-          cat configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-$ARCH.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+          JAMARCH="`echo ${ARCH} | tr -d '_-'`" # Remove all dashes, b2 does not like them
+          sed "s/%ARCH%/${JAMARCH}/g" "$SCRIPTDIR"/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-common.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
+          cat "$SCRIPTDIR"/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}-$ARCH.jam >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
           echo ';' >> $BOOST_DIR/tools/build/src/user-config.jam || exit 1
 
           # IM: We want -fPIC, not -fpic
           sed -i".original" "s/-fpic/-fPIC/g" $BOOST_DIR/tools/build/src/user-config.jam
       done
   else
-      cp configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/v2/user-config.jam || exit 1
+      cp "$SCRIPTDIR"/configs/user-config-${CONFIG_VARIANT}-${BOOST_VER}.jam $BOOST_DIR/tools/build/v2/user-config.jam || exit 1
+  fi
+
+  if [ -n "$WITH_PYTHON" ]; then
+    echo "Sed: $WITH_PYTHON"
+    sed -e "s:%PYTHON_VERSION%:${PYTHON_VERSION}:g;s:%PYTHON_INSTALL_DIR%:${WITH_PYTHON}:g" "$SCRIPTDIR"/configs/user-config-python.jam >> $BOOST_DIR/tools/build/src/user-config-python.jam || exit 1
+    cat $BOOST_DIR/tools/build/src/user-config-python.jam >> $BOOST_DIR/tools/build/src/user-config.jam
   fi
 
   # In win ndk19, add bash in front of full path to clang++ as they are actually bash scripts in disguise.
@@ -564,6 +619,8 @@ echo "Building boost for android for $ARCH"
   export AndroidBinariesPath=`dirname $CXXPATH`
   export PATH=$AndroidBinariesPath:$PATH
   export AndroidNDKRoot=$AndroidNDKRoot
+  export AndroidTargetVersion32=$ANDROID_TARGET_32
+  export AndroidTargetVersion64=$ANDROID_TARGET_64
   export NO_BZIP2=1
   export PlatformOS=$PlatformOS
 
@@ -574,7 +631,7 @@ echo "Building boost for android for $ARCH"
 
   LIBRARIES_BROKEN=""
   if [ "$TOOLSET" = "clang" ]; then
-      JAMARCH="`echo ${ARCH} | tr -d '_-'`" # Remove all dashes, bjam does not like them
+      JAMARCH="`echo ${ARCH} | tr -d '_-'`" # Remove all dashes, b2 does not like them
       TOOLSET_ARCH=${TOOLSET}-${JAMARCH}
       TARGET_OS=android
       if [ "$ARCH" = "armeabi" ]; then
@@ -591,33 +648,41 @@ echo "Building boost for android for $ARCH"
       TOOLSET_ARCH=${TOOLSET}
       TARGET_OS=linux
   fi
+  if [ -n "$WITH_PYTHON" ]; then
+    WITHOUT_LIBRARIES=
+    PYTHON_BUILD=python=${PYTHON_VERSION}
+  else
+    WITHOUT_LIBRARIES=--without-python
+    PYTHON_BUILD=
+  fi
 
-  WITHOUT_LIBRARIES=--without-python
   if [ -n "$LIBRARIES" ]; then
       unset WITHOUT_LIBRARIES
   fi
 
-  { ./bjam                            \
-         --ignore-site-config         \
-         -j$NCPU                      \
-         target-os=${TARGET_OS}       \
-         toolset=${TOOLSET_ARCH}      \
-         $cflags                      \
-         $cxxflags                    \
-         --layout=system              \
-         link=static                  \
-         threading=multi              \
-         --layout=versioned           \
-         $WITHOUT_LIBRARIES           \
-         threadapi=pthread            \
-         -sICONV_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
-         -sICU_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
-         --build-dir="./../$BUILD_DIR/build/$ARCH" \
-         --prefix="./../$BUILD_DIR/out/$ARCH" \
-         $LIBRARIES                   \
-         $LIBRARIES_BROKEN            \
-         install 2>&1                 \
-         || { dump "ERROR: Failed to build boost for android for $ARCH!" ; exit 1 ; }
+  { 
+    ./b2 -q                          \
+        -d+2                         \
+        --ignore-site-config         \
+        -j$NCPU                      \
+        target-os=${TARGET_OS}       \
+        toolset=${TOOLSET_ARCH}      \
+        $cflags                      \
+        $cxxflags                    \
+        link=static                  \
+        threading=multi              \
+        --layout=${LAYOUT}           \
+        $WITHOUT_LIBRARIES           \
+        $PYTHON_BUILD                \
+        threadapi=pthread            \
+        -sICONV_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
+        -sICU_PATH=`pwd`/../libiconv-libicu-android/$ARCH \
+        --build-dir="./../$BUILD_DIR/build/$ARCH" \
+        --prefix="./../$BUILD_DIR/out/$ARCH" \
+        $LIBRARIES                   \
+        $LIBRARIES_BROKEN            \
+        install 2>&1                 \
+        || { dump "ERROR: Failed to build boost for android for $ARCH!" ; rm -rf ./../$BUILD_DIR/out/$ARCH ; exit 1 ; }
   } | tee -a $PROGDIR/build.log
 
   # PIPESTATUS variable is defined only in Bash, and we are using /bin/sh, which is not Bash on newer Debian/Ubuntu
